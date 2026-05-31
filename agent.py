@@ -16,25 +16,25 @@ class Agent(object):
 		self.model=Model(self.__sess,self.__Param) #建立模型
 		self.logger=utils.get_logger(param["Log_dir"])
 	def run(self):
-		if self.__Param["mode"] is "training":
+		if self.__Param["mode"] == "training":
 			train_mode= self.__Param["train_mode"]
 			self.train(train_mode)
-		elif self.__Param["mode"] is "testing":
+		elif self.__Param["mode"] == "testing":
 			self.test()
-		elif self.__Param["mode"] is "savePb":
+		elif self.__Param["mode"] == "savePb":
 			raise Exception(" this  mode is incomplete ")
 		else:
 			print("got a unexpected mode ,please set the mode  'training', 'testing' or 'savePb' ")
 
 	def init_datasets(self):
 		self.Positive_data_list,self.Negative_data_list=self.listData1(self.__Param["data_dir"])
-		if self.__Param["mode"] is "training":
+		if self.__Param["mode"] == "training":
 			self.DataManager_train_Positive = DataManager(self.Positive_data_list, self.__Param)
 			self.DataManager_train_Negative = DataManager(self.Negative_data_list, self.__Param)
-		elif self.__Param["mode"] is "testing":
+		elif self.__Param["mode"] == "testing":
 			self.DataManager_test_Positive = DataManager(self.Positive_data_list, self.__Param,shuffle=False)
 			self.DataManager_test_Negative = DataManager(self.Negative_data_list, self.__Param,shuffle=False)
-		elif self.__Param["mode"] is "savePb":
+		elif self.__Param["mode"] == "savePb":
 			pass
 		else:
 			raise Exception('got a unexpected  mode ')
@@ -199,9 +199,9 @@ class Agent(object):
 						Positive_examples_valid.append([example_image, example_label])
 					else:
 						Negative_examples_valid.append([example_image, example_label])
-		if self.__Param["mode"] is "training":
+		if self.__Param["mode"] == "training":
 			return Positive_examples_train,Negative_examples_train
-		if self.__Param["mode"] is "testing":
+		if self.__Param["mode"] == "testing":
 			return Positive_examples_valid,Negative_examples_valid
 
 

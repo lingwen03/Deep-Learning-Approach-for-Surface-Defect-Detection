@@ -23,8 +23,10 @@ class Model(object):
         self.__mode= param["mode"]
         self.is_training=True
         self.__batch_size = param["batch_size"]
-        if  self.__mode is "savaPb" :
+        if self.__mode == "savePb":
             self.__batch_size = 1
+        if not os.path.exists(self.__checkPoint_dir):
+            os.makedirs(self.__checkPoint_dir)
         ################ Building graph
         with self.__session.as_default():
             self.build_model()
@@ -95,7 +97,7 @@ class Model(object):
                     return  logits,output
 
         Image = tf.placeholder(tf.float32, shape=(self.__batch_size, IMAGE_SIZE[0],IMAGE_SIZE[1], 1), name='Image')
-        PixelLabel=tf.placeholder(tf.float32, shape=(self.__batch_size, IMAGE_SIZE[0]/8,IMAGE_SIZE[1]/8, 1), name='PixelLabel')
+        PixelLabel=tf.placeholder(tf.float32, shape=(self.__batch_size, IMAGE_SIZE[0]//8,IMAGE_SIZE[1]//8, 1), name='PixelLabel')
         Label = tf.placeholder(tf.int32, shape=(self.__batch_size), name='Label')
         features, logits_pixel, mask=SegmentNet(Image,'segment',self.is_training)
         logits_class,output_class=DecisionNet(features,mask, 'decision', self.is_training)

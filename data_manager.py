@@ -3,7 +3,6 @@ import os
 import numpy as np
 import  cv2
 from config import *
-from scipy.misc import imread, imresize, imsave
 from random import shuffle
 import  tensorflow as tf
 
