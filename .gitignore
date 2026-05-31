@@ -1,0 +1,3 @@
+data/
+Log/*_log.txt
+!Log/2019-05-21-09-56-58_log.txt
