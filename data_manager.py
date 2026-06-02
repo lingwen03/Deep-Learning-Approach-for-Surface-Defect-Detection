@@ -35,27 +35,63 @@ class DataManager(object):
             image_path = os.path.join(self.data_dir, file_basename_image)
             label_path= os.path.join(self.data_dir, file_basename_label)
             image= self.read_data(image_path)
-            label = self.read_data(label_path)
+            label = self.read_data(label_path, is_label=True)
             label_pixel,label=self.label_preprocess(label)
             image = (np.array(image[:, :, np.newaxis]))
             label_pixel = (np.array(label_pixel[:, :, np.newaxis]))
             yield image, label_pixel,label, file_basename_image
 
-    def read_data(self, data_name):
-        img = cv2.imread(data_name, 0)  # /255.#read the gray image
+    def read_data(self, data_name, is_label=False):
+        """
+        Read and preprocess an image.
+
+        When is_label=True, reads raw without enhancement (label pixels
+        should stay 0/255).  When is_label=False, applies bilateral filter
+        + CLAHE for defect-preserving contrast enhancement.
+        """
+        img = cv2.imread(data_name, 0)  # read as grayscale
+
+        if not is_label:
+            # ---- Pain Point 1: eliminate lighting artifacts ----
+            # Bilateral filter: smooths background noise + highlight speckles
+            # while keeping defect boundary edges sharp.
+            img = cv2.bilateralFilter(img, d=9, sigmaColor=75, sigmaSpace=75)
+
+            # CLAHE: Contrast Limited Adaptive Histogram Equalization
+            # Suppresses large-area highlights, boosts weak scratch/pit contrast.
+            clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+            img = clahe.apply(img)
+
         img = cv2.resize(img, (IMAGE_SIZE[1], IMAGE_SIZE[0]))
-        # img = img.swapaxes(0, 1)
-        # image = (np.array(img[:, :, np.newaxis]))
         return img
 
 
-    def label_preprocess(self,label):
-        label = cv2.resize(label, (int(IMAGE_SIZE[1]/8), int(IMAGE_SIZE[0]/8)))
-        label_pixel=self.ImageBinarization(label)
-        label=label.sum()
-        if label>0:
-            label=1
-        return  label_pixel,label
+    def label_preprocess(self, label):
+        """
+        Downsample label from 1280x512 to 160x64 using max-pool logic.
+
+        Pain Point 2 fix: cv2.resize with interpolation DILUTES single-pixel
+        defects (burrs, hairline scratches < 3px wide) into oblivion,
+        producing all-zero labels.  Max-pool guarantees: "if any pixel in the
+        8x8 block is a defect, the downsampled pixel stays 1."
+
+        Formula: reshape (M,K,N,K) -> max over axes 1,3 -> (M//K, N//K)
+        """
+        label = np.array(label)
+        M, N = label.shape
+        K = 8  # downsample factor (3x max_pool_2x2 = 8x)
+
+        # Trim to multiple of K for clean reshape
+        label_pixel = label[:M - M % K, :N - N % K]
+        label_pixel = label_pixel.reshape(M // K, K, N // K, K).max(axis=(1, 3))
+
+        # Binarize: any defect pixel -> 1
+        label_pixel = np.where(label_pixel > 0, 1, 0)
+
+        # Global label: at least one defect pixel -> 1 (NG)
+        label_global = 1 if label_pixel.sum() > 0 else 0
+
+        return label_pixel, label_global
 
     def ImageBinarization(self,img, threshold=1):
         img = np.array(img)

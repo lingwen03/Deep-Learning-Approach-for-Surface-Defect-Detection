@@ -6,5 +6,6 @@ extracted_docx/
 test_images/
 inference_results/
 inference_results_v2/
+inference_results_v3/
 *.docx
 visualization/

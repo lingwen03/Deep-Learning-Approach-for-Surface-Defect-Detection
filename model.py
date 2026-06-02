@@ -101,10 +101,39 @@ class Model(object):
         Label = tf.placeholder(tf.int32, shape=(self.__batch_size), name='Label')
         features, logits_pixel, mask=SegmentNet(Image,'segment',self.is_training)
         logits_class,output_class=DecisionNet(features,mask, 'decision', self.is_training)
-        #损失函数
-        logits_pixel=tf.reshape(logits_pixel,[self.__batch_size,-1])
-        PixelLabel_reshape=tf.reshape(PixelLabel,[self.__batch_size,-1])
-        loss_pixel = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=logits_pixel, labels=PixelLabel_reshape))
+        # ================================================================
+        # Pain Point 3: Focal Loss + Dice Loss (replaces naive BCE)
+        #
+        # Focal Loss  (alpha=0.25, gamma=2.0):
+        #   Down-weights easy background pixels so the model can't "cheat"
+        #   by predicting all-zeros and still getting low loss.
+        #
+        # Dice Loss  (weight=0.5):
+        #   IoU-based — insensitive to defect size.  A 20-pixel scratch
+        #   and a 2000-pixel crack carry equal weight in the loss.
+        #
+        # Without this fix, on a 160x64=10240-pixel feature map, a
+        # hairline scratch (20px) is only 0.2% of the loss — the model
+        # learns to ignore it.
+        # ================================================================
+        probs = tf.nn.sigmoid(logits_pixel)
+        PixelLabel_float = tf.cast(PixelLabel, tf.float32)
+
+        # -- Focal Loss --
+        alpha = 0.25
+        gamma = 2.0
+        focal_pos = -alpha * PixelLabel_float \
+            * ((1.0 - probs) ** gamma) * tf.log(probs + 1e-8)
+        focal_neg = -(1.0 - alpha) * (1.0 - PixelLabel_float) \
+            * (probs ** gamma) * tf.log(1.0 - probs + 1e-8)
+        loss_focal = tf.reduce_mean(focal_pos + focal_neg)
+
+        # -- Dice Loss --
+        intersection = 2.0 * tf.reduce_sum(probs * PixelLabel_float) + 1e-5
+        union = tf.reduce_sum(probs) + tf.reduce_sum(PixelLabel_float) + 1e-5
+        loss_dice = 1.0 - intersection / union
+
+        loss_pixel = loss_focal + 0.5 * loss_dice
         loss_class = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(logits=logits_class,labels=Label))
         loss_total=loss_pixel+loss_class
         optimizer = tf.train.GradientDescentOptimizer(self.__learn_rate)
