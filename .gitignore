@@ -5,5 +5,6 @@ __pycache__/
 extracted_docx/
 test_images/
 inference_results/
+inference_results_v2/
 *.docx
 visualization/
