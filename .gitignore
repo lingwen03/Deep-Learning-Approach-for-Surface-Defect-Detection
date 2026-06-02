@@ -1,3 +1,9 @@
 data/
 Log/*_log.txt
 !Log/2019-05-21-09-56-58_log.txt
+__pycache__/
+extracted_docx/
+test_images/
+inference_results/
+*.docx
+visualization/
